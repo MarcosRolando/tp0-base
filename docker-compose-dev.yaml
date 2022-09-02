@@ -26,6 +26,16 @@ services:
     depends_on:
       - server
 
+  server-health-check:
+    container_name: server-health-check
+    image: server-health-check
+    entrypoint: /health-check.sh
+    build: ./health
+    networks:
+      - testing_net
+    depends_on:
+      - server
+
 networks:
   testing_net:
     ipam:

@@ -23,6 +23,8 @@ services:
       - LOGGING_LEVEL=DEBUG
     networks:
       - testing_net
+    volumes:
+      - ./server/config.ini:/config.ini
 """
 )
 
@@ -42,8 +44,24 @@ for i in range(1, clientCount + 1):
       - testing_net
     depends_on:
       - server
+    volumes:
+      - ./client/config.yaml:/config.yaml
   """.format(clientId=i)
   )
+
+file.write(
+  """
+  server-health-check:
+    container_name: server-health-check
+    image: server-health-check
+    entrypoint: /health-check.sh
+    build: ./health
+    networks:
+      - testing_net
+    depends_on:
+      - server
+  """
+)
 
 file.write(
 """
@@ -53,7 +71,6 @@ networks:
       driver: default
       config:
         - subnet: 172.25.125.0/24
-
 """
 )
 

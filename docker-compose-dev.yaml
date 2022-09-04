@@ -29,7 +29,7 @@ services:
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
-
+  
   client2:
     container_name: client2
     image: client:latest
@@ -43,7 +43,41 @@ services:
       - testing_net
     depends_on:
       - server
-
+    volumes:
+      - ./client/config.yaml:/config.yaml
+  
+  client3:
+    container_name: client3
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=3
+      - CLI_SERVER_ADDRESS=server:12345
+      - CLI_LOOP_LAPSE=1m2s
+      - CLI_LOG_LEVEL=DEBUG
+    networks:
+      - testing_net
+    depends_on:
+      - server
+    volumes:
+      - ./client/config.yaml:/config.yaml
+  
+  client4:
+    container_name: client4
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=4
+      - CLI_SERVER_ADDRESS=server:12345
+      - CLI_LOOP_LAPSE=1m2s
+      - CLI_LOG_LEVEL=DEBUG
+    networks:
+      - testing_net
+    depends_on:
+      - server
+    volumes:
+      - ./client/config.yaml:/config.yaml
+  
   server-health-check:
     container_name: server-health-check
     image: server-health-check
@@ -53,7 +87,7 @@ services:
       - testing_net
     depends_on:
       - server
-
+  
 networks:
   testing_net:
     ipam:

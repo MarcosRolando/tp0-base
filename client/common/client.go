@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"net"
 	"time"
+	"os"
+	"os/signal"
+	"syscall"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -55,11 +58,16 @@ func (c *Client) StartClientLoop() {
 	c.createClientSocket()
 	msgID := 1
 
+	sigtermSignal := make(chan os.Signal, 1)
+	signal.Notify(sigtermSignal, syscall.SIGTERM)
+
 loop:
 	// Send messages if the loopLapse threshold has been not surpassed
 	for timeout := time.After(c.config.LoopLapse); ; {
 		select {
-		case <-timeout:
+		case <- timeout:
+			break loop
+		case <- sigtermSignal:
 			break loop
 		default:
 		}

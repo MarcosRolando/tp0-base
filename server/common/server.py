@@ -2,7 +2,7 @@ import socket
 import logging
 import signal
 import sys
-
+from common.utils import Contestant, is_winner, recv_all
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -11,9 +11,9 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self._client_socket = None
-        signal.signal(signal.SIGTERM, self.close)
+        signal.signal(signal.SIGTERM, self.__sigterm_handler)
 
-    def close(self, received_signal, _):
+    def __sigterm_handler(self, received_signal, _):
         if received_signal != signal.SIGTERM: return
         logging.info('Closing accepter socket...')
         self._server_socket.close()
@@ -24,45 +24,34 @@ class Server:
         sys.exit(0)
 
     def run(self):
-        """
-        Dummy Server loop
-
-        Server that accept a new connections and establishes a
-        communication with a client. After client with communucation
-        finishes, servers starts to accept new connections again
-        """
-
         while True:
             self.__accept_new_connection()
             self.__handle_client_connection()
 
-    def __handle_client_connection(self):
-        """
-        Read message from a specific client socket and closes the socket
+    def __receive_contestant(self) -> Contestant:
+        dataLength = int.from_bytes(recv_all(self._client_socket, 2), byteorder='big', signed=False) # Get total bytes to receive
+        data = recv_all(self._client_socket, dataLength).decode('utf-8').split(';')
+        return Contestant(*data)
 
-        If a problem arises in the communication with the client, the
-        client socket will also be closed
-        """
+    def __send_contestant_result(self, is_winner_contestant: bool):
+        res = b'\x01' if is_winner_contestant else b'\x00'
+        self._client_socket.sendall(res)
+
+    def __handle_client_connection(self):
         try:
-            msg = self._client_socket.recv(1024).rstrip().decode('utf-8')
+            contestant = self.__receive_contestant()
             logging.info(
-                'Message received from connection {}. Msg: {}'
-                .format(self._client_socket.getpeername(), msg))
-            self._client_socket.send("Your Message has been received: {}\n".format(msg).encode('utf-8'))
+                'Received the following contestant {}'
+                .format(vars(contestant)))
+            is_winner_contestant = is_winner(contestant)
+            self.__send_contestant_result(is_winner_contestant)
         except OSError:
-            logging.info("Error while reading socket {}".format(self._client_socket))
+            logging.error("Error while reading socket {}".format(self._client_socket))
         finally:
             self._client_socket.close()
 
     def __accept_new_connection(self):
-        """
-        Accept new connections
-
-        Function blocks until a connection to a client is made.
-        Then connection created is printed and returned
-        """
-
-        # Connection arrived
         logging.info("Proceed to accept new connections")
         self._client_socket, addr = self._server_socket.accept()
+        self._client_socket.settimeout(10.0)
         logging.info('Got connection from {}'.format(addr))

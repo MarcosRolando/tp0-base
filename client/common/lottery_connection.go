@@ -1,7 +1,6 @@
 package common
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -11,7 +10,7 @@ type LotteryResult string
 
 const (
 	Loser 	LotteryResult = "loser"
-	Winner								= "winner"
+	Winner	LotteryResult	= "winner"
 )
 
 type LotteryConnection struct {
@@ -29,14 +28,12 @@ func NewLotteryConnection(address string) (*LotteryConnection, error) {
 }
 
 func (lc *LotteryConnection) SendPersonInfo(info PersonData) error {
-	print("hola")
 	encodedInfo := fmt.Sprintf("%s;%s;%s;%s", info.Name, info.Surname, 
 														info.Document, info.Birthdate) // TODO encapsulate data serialization
 	encodedInfoLength := uint16(len(encodedInfo))
 	buffer := make([]byte, encodedInfoLength + 2) // + 2 for the length bytes
 	binary.BigEndian.PutUint16(buffer, encodedInfoLength)
 	copy(buffer[2:], []byte(encodedInfo))
-	fmt.Printf("mystr:\t %v \n", buffer) // TODO volar esto
 	_, err := lc.conn.Write(buffer) // TODO ver el n que devuelve
 	return err
 }

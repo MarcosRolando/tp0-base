@@ -1,10 +1,21 @@
 import time
 import datetime
+import socket
 
 
 """ Winners storage location. """
 STORAGE = "./winners"
 
+""" Convenience method for receiving data from a socket """
+def recv_all(sock: socket.socket, bytesToRecv: int):
+    dataReceived = bytearray(bytesToRecv)
+    pos = 0
+    while pos < bytesToRecv:
+        data = sock.recv(bytesToRecv - pos)
+        if not data: raise ConnectionError() # Connection was dropped
+        dataReceived[pos:bytesToRecv] = data
+        pos += len(data)
+    return dataReceived
 
 """ Contestant data model. """
 class Contestant:

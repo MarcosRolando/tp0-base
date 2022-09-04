@@ -1,5 +1,5 @@
 #!/bin/sh
-if echo "health check" | netcat server 12345 | grep -q 'health check'; then
+if netcat -z server 12345; then
   echo "Server running OK!"
 else
   echo "Server is down!"

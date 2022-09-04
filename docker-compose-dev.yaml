@@ -23,54 +23,10 @@ services:
       - CLI_SERVER_ADDRESS=server:12345
       - CLI_LOOP_LAPSE=1m2s
       - CLI_LOG_LEVEL=DEBUG
-    networks:
-      - testing_net
-    depends_on:
-      - server
-    volumes:
-      - ./client/config.yaml:/config.yaml
-  
-  client2:
-    container_name: client2
-    image: client:latest
-    entrypoint: /client
-    environment:
-      - CLI_ID=2
-      - CLI_SERVER_ADDRESS=server:12345
-      - CLI_LOOP_LAPSE=1m2s
-      - CLI_LOG_LEVEL=DEBUG
-    networks:
-      - testing_net
-    depends_on:
-      - server
-    volumes:
-      - ./client/config.yaml:/config.yaml
-  
-  client3:
-    container_name: client3
-    image: client:latest
-    entrypoint: /client
-    environment:
-      - CLI_ID=3
-      - CLI_SERVER_ADDRESS=server:12345
-      - CLI_LOOP_LAPSE=1m2s
-      - CLI_LOG_LEVEL=DEBUG
-    networks:
-      - testing_net
-    depends_on:
-      - server
-    volumes:
-      - ./client/config.yaml:/config.yaml
-  
-  client4:
-    container_name: client4
-    image: client:latest
-    entrypoint: /client
-    environment:
-      - CLI_ID=4
-      - CLI_SERVER_ADDRESS=server:12345
-      - CLI_LOOP_LAPSE=1m2s
-      - CLI_LOG_LEVEL=DEBUG
+      - CLI_PERSON_NAME=Julio
+      - CLI_PERSON_SURNAME=Roca
+      - CLI_PERSON_DOCUMENT=41294678
+      - CLI_PERSON_BIRTHDATE=2000-01-02
     networks:
       - testing_net
     depends_on:

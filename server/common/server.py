@@ -52,6 +52,8 @@ class Server:
             logging.error("Error while reading socket {}".format(self._client_socket))
         except BadProtocolError:
             logging.error("Error while communicating with client: bad protocol")
+        except Exception as err:
+            logging.error("Error while communicating with client: {}".format(repr(err)))
         finally:
             self._client_socket.close()
 

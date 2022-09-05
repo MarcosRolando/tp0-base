@@ -24,9 +24,9 @@ services:
       - CLI_LOOP_LAPSE=1m2s
       - CLI_LOG_LEVEL=DEBUG
       - CLI_PERSON_NAME=Julio
-      - CLI_PERSON_SURNAME=Roca
-      - CLI_PERSON_DOCUMENT=41294678
-      - CLI_PERSON_BIRTHDATE=2000-01-02
+      - CLI_PERSON_SURNAME=Gallo
+      - CLI_PERSON_DOCUMENT=25381048
+      - CLI_PERSON_BIRTHDATE=1974-09-06
     networks:
       - testing_net
     depends_on:

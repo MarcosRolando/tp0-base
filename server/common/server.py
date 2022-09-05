@@ -4,6 +4,8 @@ import signal
 import sys
 from common.utils import Contestant, is_winner, recv_all
 
+class BadProtocolError(Exception): ...
+
 class Server:
     def __init__(self, port, listen_backlog):
         # Initialize server socket
@@ -31,6 +33,7 @@ class Server:
     def __receive_contestant(self) -> Contestant:
         dataLength = int.from_bytes(recv_all(self._client_socket, 2), byteorder='big', signed=False) # Get total bytes to receive
         data = recv_all(self._client_socket, dataLength).decode('utf-8').split(';')
+        if len(data) != 4: raise BadProtocolError()
         return Contestant(*data)
 
     def __send_contestant_result(self, is_winner_contestant: bool):
@@ -47,11 +50,13 @@ class Server:
             self.__send_contestant_result(is_winner_contestant)
         except OSError:
             logging.error("Error while reading socket {}".format(self._client_socket))
+        except BadProtocolError:
+            logging.error("Error while communicating with client: bad protocol")
         finally:
             self._client_socket.close()
 
     def __accept_new_connection(self):
         logging.info("Proceed to accept new connections")
         self._client_socket, addr = self._server_socket.accept()
-        self._client_socket.settimeout(10.0)
+        self._client_socket.settimeout(5.0)
         logging.info('Got connection from {}'.format(addr))

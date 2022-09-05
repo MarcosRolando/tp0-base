@@ -23,10 +23,10 @@ services:
       - CLI_SERVER_ADDRESS=server:12345
       - CLI_LOOP_LAPSE=1m2s
       - CLI_LOG_LEVEL=DEBUG
-      - CLI_PERSON_NAME=Julio
-      - CLI_PERSON_SURNAME=Gallo
-      - CLI_PERSON_DOCUMENT=25381048
-      - CLI_PERSON_BIRTHDATE=1974-09-06
+      - CLI_PERSON_NAME=Federico
+      - CLI_PERSON_SURNAME=Ortiz
+      - CLI_PERSON_DOCUMENT=79481385
+      - CLI_PERSON_BIRTHDATE=2018-03-11
     networks:
       - testing_net
     depends_on:

@@ -65,6 +65,11 @@ func (lc *LotteryConnection) Close() error {
 	return lc.conn.Close()
 }
 
+func (lc *LotteryConnection) NotifyCompletion() error {
+	_, err := lc.conn.Write(make([]byte, 2))
+	return err
+}
+
 func (lc *LotteryConnection) getWinner() (PersonData, error) {
 	dataLenBuf := make([]byte, 2)
 	if _, err := io.ReadFull(lc.conn, dataLenBuf); err != nil {

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -34,6 +35,12 @@ func NewClient(config ClientConfig) *Client {
 }
 
 func (c *Client) PlayLottery() {
+	dataReader := DataReader{}
+	if err := dataReader.Open(fmt.Sprintf("/datasets/dataset-%v.csv", c.config.ID)); err != nil {
+		log.Fatalf("[CLIENT %v] Failed to open dataset file", c.config.ID)
+	}
+	defer dataReader.Close() // TODO see about handling error
+
 	lotteryConn, err := NewLotteryConnection(c.config.ServerAddress)
 	if err != nil {
 		log.Fatalf(

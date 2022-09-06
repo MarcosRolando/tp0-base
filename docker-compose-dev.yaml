@@ -23,17 +23,14 @@ services:
       - CLI_SERVER_ADDRESS=server:12345
       - CLI_LOOP_LAPSE=1m2s
       - CLI_LOG_LEVEL=DEBUG
-      - CLI_PERSON_NAME=Federico
-      - CLI_PERSON_SURNAME=Ortiz
-      - CLI_PERSON_DOCUMENT=79481385
-      - CLI_PERSON_BIRTHDATE=2018-03-11
     networks:
       - testing_net
     depends_on:
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
-  
+      - ./.data/datasets:/datasets
+
   server-health-check:
     container_name: server-health-check
     image: server-health-check

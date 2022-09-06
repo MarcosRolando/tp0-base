@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"io"
 )
 
 type LotteryResult string
@@ -37,7 +38,7 @@ func (lc *LotteryConnection) SendPersonInfo(info PersonData) error {
 	buffer := make([]byte, encodedInfoLength + 2) // + 2 for the length bytes
 	binary.BigEndian.PutUint16(buffer, encodedInfoLength)
 	copy(buffer[2:], []byte(encodedInfo))
-	_, err := lc.conn.Write(buffer) // TODO ver el n que devuelve
+	_, err := lc.conn.Write(buffer)
 	if err == nil { lc.sentInfo = true }
 	return err
 }
@@ -47,8 +48,7 @@ func (lc *LotteryConnection) GetResult() (LotteryResult, error) {
 		return "", errors.New("person info was not previously sent to the Lottery")
 	}
 	buffer := make([]byte, 1)
-	// TODO check n
-	if _, err := lc.conn.Read(buffer); err != nil {
+	if _, err := io.ReadFull(lc.conn, buffer); err != nil {
 		return "", err
 	}
 	resCode := buffer[0]

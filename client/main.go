@@ -71,6 +71,9 @@ func InitLogger(logLevel string) error {
 	}
 
 	logrus.SetLevel(level)
+	logrus.SetFormatter(&logrus.TextFormatter{
+    DisableQuote: true,
+	})
 	return nil
 }
 

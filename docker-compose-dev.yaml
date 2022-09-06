@@ -30,7 +30,24 @@ services:
     volumes:
       - ./client/config.yaml:/config.yaml
       - ./.data/datasets:/datasets
-
+  
+  client2:
+    container_name: client2
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=2
+      - CLI_SERVER_ADDRESS=server:12345
+      - CLI_LOOP_LAPSE=1m2s
+      - CLI_LOG_LEVEL=DEBUG
+    networks:
+      - testing_net
+    depends_on:
+      - server
+    volumes:
+      - ./client/config.yaml:/config.yaml
+      - ./.data/datasets:/datasets
+  
   server-health-check:
     container_name: server-health-check
     image: server-health-check

@@ -66,17 +66,26 @@ func (c *Client) PlayLottery() {
 		}
 	}()
 
-	const maxBatchSize = 100
+	const maxBatchSize = 2000
+	totalParticipants := 0
+	totalWinners := 0
 	for {
 		batchInfo, err := dataReader.ReadNextBatch(maxBatchSize)
 		if err != nil {
 			log.Panicf("[CLIENT %v] Failed to read batch data. Error: %v", c.config.ID, err.Error())
 		}
-		if batchInfo == nil {
-			break
-		}
+		if len(batchInfo) == 0 { break }
+		totalParticipants += len(batchInfo)
 		c.submitDataToLottery(batchInfo)
-		c.checkLotteryResult()
+		batchWinners := c.checkLotteryResult()
+		totalWinners += len(batchWinners)
+	}
+
+	if err := c.lottery.NotifyCompletion(); err != nil {
+		log.Errorf("[CLIENT %v] Failed to notify data completion to Lotter. Error: %v", c.config.ID, err.Error())
+	} else {
+		log.Infof("[CLIENT %v] Sent all data to Lottery. Winners rate: %v", c.config.ID, 
+			float64(totalWinners) / float64(totalParticipants))
 	}
 }
 
@@ -87,12 +96,15 @@ func (c *Client) submitDataToLottery(batchInfo []PersonData) {
 	log.Infof("[CLIENT %v] Submitted batch data to Lottery", c.config.ID)
 }
 
-func (c *Client) checkLotteryResult() {
+func (c *Client) checkLotteryResult() []PersonData {
 	winners, err := c.lottery.GetBatchResult()
 	if err != nil {
 		log.Panicf("[CLIENT %v] Failed to get result from Lottery. Error: %v", c.config.ID, err.Error())
-	} else {
-		log.Infof("[CLIENT %v] Received batch winners", c.config.ID)
-		log.Printf("%+v", winners)
 	}
+	log.Infof("[CLIENT %v] Received batch winners", c.config.ID)
+	for _, w := range winners {
+		log.Infof("\n\n Name: %v\n Surname: %v\n Document: %v\n Birthdate: %v\n", 
+			w.Name, w.Surname, w.Document, w.Birthdate)
+	}
+	return winners
 }

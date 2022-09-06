@@ -30,24 +30,37 @@ class Server:
             self.__accept_new_connection()
             self.__handle_client_connection()
 
-    def __receive_contestant(self) -> Contestant:
-        dataLength = int.from_bytes(recv_all(self._client_socket, 2), byteorder='big', signed=False) # Get total bytes to receive
-        data = recv_all(self._client_socket, dataLength).decode('utf-8').split(';')
-        if len(data) != 4: raise BadProtocolError()
-        return Contestant(*data)
+    def __receive_contestants(self) -> list[Contestant]:
+        totalContestants = int.from_bytes(recv_all(self._client_socket, 2), byteorder='big', signed=False)
+        if totalContestants == 0: return []
+        contestants = []
+        for _ in range(totalContestants):
+            dataLength = int.from_bytes(recv_all(self._client_socket, 2), byteorder='big', signed=False)
+            data = recv_all(self._client_socket, dataLength).decode('utf-8').split(';')
+            if len(data) != 4: raise BadProtocolError()
+            contestants.append(Contestant(*data))
+        return contestants
 
-    def __send_contestant_result(self, is_winner_contestant: bool):
-        res = b'\x01' if is_winner_contestant else b'\x00'
-        self._client_socket.sendall(res)
+    def __send_winners(self, winners: list[Contestant]):
+        self._client_socket.sendall(len(winners).to_bytes(2, byteorder='big', signed=False))
+        for w in winners:
+            winnerData = bytearray(';'.join([
+                w.first_name, 
+                w.last_name,
+                w.document, 
+                w.birthdate.strftime('%Y-%m-%d')]
+                ).encode('utf-8'))
+            self._client_socket.sendall(len(winnerData).to_bytes(2, byteorder='big', signed=False))
+            self._client_socket.sendall(winnerData)
 
     def __handle_client_connection(self):
         try:
-            contestant = self.__receive_contestant()
-            logging.info(
-                'Received the following contestant {}'
-                .format(vars(contestant)))
-            is_winner_contestant = is_winner(contestant)
-            self.__send_contestant_result(is_winner_contestant)
+            contestants = self.__receive_contestants()
+            while contestants:
+                logging.info('Received contestants batch')
+                winners = list(filter(lambda c: is_winner(c), contestants))
+                self.__send_winners(winners)
+                contestants = self.__receive_contestants()
         except OSError:
             logging.error("Error while reading socket {}".format(self._client_socket))
         except BadProtocolError:

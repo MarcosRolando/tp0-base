@@ -46,6 +46,7 @@ for i in range(1, clientCount + 1):
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./.data/datasets:/datasets
   """.format(clientId=i)
   )
 

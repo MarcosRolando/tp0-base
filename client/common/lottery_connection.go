@@ -4,20 +4,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"net"
 	"io"
-)
-
-type LotteryResult string
-
-const (
-	Loser 	LotteryResult = "Better luck next time... Loser"
-	Winner	LotteryResult	= "Winner winner chicken dinner, you won!"
+	"net"
+	"strings"
 )
 
 type LotteryConnection struct {
-	conn 			net.Conn
-	sentInfo	bool
+	conn     net.Conn
 }
 
 func NewLotteryConnection(address string) (*LotteryConnection, error) {
@@ -27,39 +20,69 @@ func NewLotteryConnection(address string) (*LotteryConnection, error) {
 	}
 	return &LotteryConnection{
 		conn,
-		false,
 	}, nil
 }
 
-func (lc *LotteryConnection) SendPersonInfo(info PersonData) error {
-	encodedInfo := fmt.Sprintf("%s;%s;%s;%s", info.Name, info.Surname, 
-														info.Document, info.Birthdate)
+func (lc *LotteryConnection) SendBatchInfo(batchInfo []PersonData) error {
+	if err := binary.Write(lc.conn, binary.BigEndian, uint16(len(batchInfo))); err != nil {
+		return err
+	}
+	for _, personInfo := range batchInfo {
+		if err := lc.sendPersonInfo(personInfo); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (lc *LotteryConnection) sendPersonInfo(info PersonData) error {
+	encodedInfo := fmt.Sprintf("%s;%s;%s;%s", info.Name, info.Surname,
+		info.Document, info.Birthdate)
 	encodedInfoLength := uint16(len(encodedInfo))
-	buffer := make([]byte, encodedInfoLength + 2) // + 2 for the length bytes
+	buffer := make([]byte, encodedInfoLength+2) // + 2 for the length bytes
 	binary.BigEndian.PutUint16(buffer, encodedInfoLength)
 	copy(buffer[2:], []byte(encodedInfo))
 	_, err := lc.conn.Write(buffer)
-	if err == nil { lc.sentInfo = true }
 	return err
 }
 
-func (lc *LotteryConnection) GetResult() (LotteryResult, error) {
-	if !lc.sentInfo {
-		return "", errors.New("person info was not previously sent to the Lottery")
+func (lc *LotteryConnection) GetBatchResult() ([]PersonData, error) {
+	totalWinnersBuff := make([]byte, 2)
+	if _, err := io.ReadFull(lc.conn, totalWinnersBuff); err != nil {
+		return nil, err
 	}
-	buffer := make([]byte, 1)
-	if _, err := io.ReadFull(lc.conn, buffer); err != nil {
-		return "", err
+	totalWinners := binary.BigEndian.Uint16(totalWinnersBuff)
+	winners := make([]PersonData, totalWinners)
+	for i := 0; i < int(totalWinners); i++ {
+		winner, err := lc.getWinner()
+		if err != nil { return nil, err }
+		winners[i] = winner
 	}
-	resCode := buffer[0]
-	isValidResponse := func() bool { return resCode == 0 || resCode == 1 };
-	if !isValidResponse() {
-		panic(fmt.Sprintf("Received an invalid lottery response status of %v", resCode))
-	}
-	resultMap := map[byte]LotteryResult{0: Loser, 1: Winner}
-	return resultMap[resCode], nil
+	return winners, nil
 }
 
 func (lc *LotteryConnection) Close() error {
 	return lc.conn.Close()
+}
+
+func (lc *LotteryConnection) getWinner() (PersonData, error) {
+	dataLenBuf := make([]byte, 2)
+	if _, err := io.ReadFull(lc.conn, dataLenBuf); err != nil {
+		return PersonData{}, err
+	}
+	dataLen := binary.BigEndian.Uint16(dataLenBuf)
+	winnerDataBuf := make([]byte, dataLen)
+	if _, err := io.ReadFull(lc.conn, winnerDataBuf); err != nil {
+		return PersonData{}, err
+	}
+	winnerData := strings.Split(string(winnerDataBuf), ";")
+	if len(winnerData) != 4 {
+		return PersonData{}, errors.New("bad protocol, received invalid winner data")
+	}
+	return PersonData{
+		Name: winnerData[0],
+		Surname: winnerData[1],
+		Document: winnerData[2],
+		Birthdate: winnerData[3],
+	}, nil
 }

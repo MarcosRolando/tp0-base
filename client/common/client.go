@@ -21,15 +21,15 @@ type ClientConfig struct {
 
 // Client Entity that encapsulates how
 type Client struct {
-	config     ClientConfig
-	lottery 	*LotteryConnection
+	config  ClientConfig
+	lottery *LotteryConnection
 }
 
 // NewClient Initializes a new client receiving the configuration
 // as a parameter
 func NewClient(config ClientConfig) *Client {
 	client := &Client{
-		config:     config,
+		config: config,
 	}
 	return client
 }
@@ -54,7 +54,7 @@ func (c *Client) PlayLottery() {
 
 	sigtermSignal := make(chan os.Signal, 1)
 	signal.Notify(sigtermSignal, syscall.SIGTERM)
-	defer	func() {
+	defer func() {
 		signal.Stop(sigtermSignal)
 		close(sigtermSignal)
 	}()
@@ -66,22 +66,33 @@ func (c *Client) PlayLottery() {
 		}
 	}()
 
-	c.submitDataToLottery()
-	c.checkLotteryResult()
+	const maxBatchSize = 100
+	for {
+		batchInfo, err := dataReader.ReadNextBatch(maxBatchSize)
+		if err != nil {
+			log.Panicf("[CLIENT %v] Failed to read batch data. Error: %v", c.config.ID, err.Error())
+		}
+		if batchInfo == nil {
+			break
+		}
+		c.submitDataToLottery(batchInfo)
+		c.checkLotteryResult()
+	}
 }
 
-func (c* Client) submitDataToLottery() {
-	if err := c.lottery.SendPersonInfo(c.config.PersonInfo); err != nil {
+func (c *Client) submitDataToLottery(batchInfo []PersonData) {
+	if err := c.lottery.SendBatchInfo(batchInfo); err != nil {
 		log.Panicf("[CLIENT %v] Failed to submit data to Lottery. Error: %v", c.config.ID, err.Error())
 	}
-	log.Infof("[CLIENT %v] Person data submitted to the Lottery", c.config.ID)
+	log.Infof("[CLIENT %v] Submitted batch data to Lottery", c.config.ID)
 }
 
-func (c* Client) checkLotteryResult() {
-	result, err := c.lottery.GetResult()
+func (c *Client) checkLotteryResult() {
+	winners, err := c.lottery.GetBatchResult()
 	if err != nil {
 		log.Panicf("[CLIENT %v] Failed to get result from Lottery. Error: %v", c.config.ID, err.Error())
 	} else {
-		log.Infof("[CLIENT %v] The result of the lottery is: %v", c.config.ID, result)
+		log.Infof("[CLIENT %v] Received batch winners", c.config.ID)
+		log.Printf("%+v", winners)
 	}
 }

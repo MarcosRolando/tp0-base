@@ -98,6 +98,5 @@ class Server:
         logging.info(f'[SERVER {self._worker_number}] Got connection from {addr}')
 
     def __log_winners(self, winners: list[Contestant]):
-        self._file_lock.acquire()
-        persist_winners(winners)
-        self._file_lock.release()
+        with self._file_lock:
+            persist_winners(winners)

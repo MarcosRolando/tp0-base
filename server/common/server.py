@@ -3,8 +3,8 @@ import socket
 import logging
 import signal
 import sys
-from multiprocessing import Process
-from common.utils import Contestant, is_winner, recv_all
+from multiprocessing import Process, Lock
+from common.utils import Contestant, is_winner, persist_winners, recv_all
 
 
 class BadProtocolError(Exception): ...
@@ -17,16 +17,20 @@ class Server:
         self._server_socket.listen(listen_backlog)
         self._client_socket = None
         total_workers = max(multiprocessing.cpu_count() - 1, 1)
-        self._client_handlers = [Process(target=self.__run_worker) for _ in range(total_workers)]
+        file_lock = Lock()
+        self._client_handlers = [
+            Process(target=self.__run_worker, args=[i+1, file_lock]) for i in range(total_workers)
+        ]
+        signal.signal(signal.SIGTERM, self.__sigterm_handler_manager)
 
     def __sigterm_handler_worker(self, received_signal, _):
         if received_signal != signal.SIGTERM: return
-        logging.info('Closing accepter socket...')
+        logging.info(f'[SERVER {self._worker_number}] Closing accepter socket...')
         self._server_socket.close()
-        logging.info('Closing client socket...')
+        logging.info(f'[SERVER {self._worker_number}] Closing client socket...')
         if self._client_socket != None and self._client_socket.fileno() != -1:
             self._client_socket.close()
-        logging.info('Succesfully freed resources')
+        logging.info(f'[SERVER {self._worker_number}] Succesfully freed resources')
         sys.exit(0)
 
     def __sigterm_handler_manager(self, received_signal, _):
@@ -34,11 +38,13 @@ class Server:
         for ch in self._client_handlers: ch.terminate()
 
     def run(self):
-        signal.signal(signal.SIGTERM, self.__sigterm_handler_manager)
         for ch in self._client_handlers: ch.start()
+        self._server_socket.close() # Only the workers will use it
         for ch in self._client_handlers: ch.join()
 
-    def __run_worker(self):
+    def __run_worker(self, worker_number: int, file_lock: Lock):
+        self._worker_number = worker_number
+        self._file_lock = file_lock
         signal.signal(signal.SIGTERM, self.__sigterm_handler_worker)
         while True:
             self.__accept_new_connection()
@@ -71,8 +77,9 @@ class Server:
         try:
             contestants = self.__receive_contestants()
             while contestants:
-                logging.info('Received contestants batch')
+                logging.info(f'[SERVER {self._worker_number}] Received contestants batch')
                 winners = list(filter(lambda c: is_winner(c), contestants))
+                self.__log_winners(winners)
                 self.__send_winners(winners)
                 contestants = self.__receive_contestants()
         except OSError:
@@ -85,7 +92,12 @@ class Server:
             self._client_socket.close()
 
     def __accept_new_connection(self):
-        logging.info("Proceed to accept new connections")
+        logging.info(f'[SERVER {self._worker_number}] Proceed to accept new connections')
         self._client_socket, addr = self._server_socket.accept()
         self._client_socket.settimeout(5.0)
-        logging.info('Got connection from {}'.format(addr))
+        logging.info(f'[SERVER {self._worker_number}] Got connection from {addr}')
+
+    def __log_winners(self, winners: list[Contestant]):
+        self._file_lock.acquire()
+        persist_winners(winners)
+        self._file_lock.release()

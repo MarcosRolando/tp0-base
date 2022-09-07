@@ -1,8 +1,8 @@
 import multiprocessing
 import socket
 import signal
-from multiprocessing import Process, Lock
-from common.client_handler import ClientHandler
+from multiprocessing import Process, Lock, Array, Value
+from common.client_handler import ClientHandler, ClientHandlerArgs
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -12,11 +12,16 @@ class Server:
         self._server_socket.listen(listen_backlog)
         total_client_handlers = max(multiprocessing.cpu_count() - 1, 1)
         file_lock = Lock()
+        result_flags = Array('i', total_client_handlers)
+        total_winners = Value('I', 0)
+        ch_args = ClientHandlerArgs(
+            self._server_socket,
+            file_lock,
+            result_flags,
+            total_winners,
+        )
         self._client_handlers = [
-            Process(
-                target=ClientHandler.run,
-                args=[self._server_socket, file_lock, i+1]
-            ) for i in range(total_client_handlers)
+            Process(target=ClientHandler.run, args=[i+1, ch_args]) for i in range(total_client_handlers)
         ]
         signal.signal(signal.SIGTERM, self.__sigterm_handler)
 

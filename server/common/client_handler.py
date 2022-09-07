@@ -75,18 +75,18 @@ class ClientHandler:
     waiting_for_others = True
 
     while waiting_for_others:
-      request = int.from_bytes(recv_all(self._client_socket, 1), signed=False)
+      request = int.from_bytes(recv_all(self._client_socket, 1), byteorder='big', signed=False)
       if request != 1: raise BadProtocolError()
       waiting_count = 0 # Init
       with self._result_flags.get_lock(): 
-        waiting_count = list(filter(lambda f: f == 1, self._result_flags))
-        waiting_for_others = len(waiting_count) > 0
+        waiting_count = len(list(filter(lambda f: f == 1, self._result_flags)))
+        waiting_for_others = waiting_count > 0
       if waiting_for_others:
           self._client_socket.sendall(b'\x00') # Notify that it will receive amount of agencies still processing
           self._client_socket.sendall(waiting_count.to_bytes(2, byteorder='big', signed=False))
       else:
-        self._client_socket.sendall(b'\x00') # Notify that it will receive the total amount of winners
-        self._client_socket.sendall(self._total_winners.to_bytes(4, byteorder='big', signed=False))
+        self._client_socket.sendall(b'\x01') # Notify that it will receive the total amount of winners
+        self._client_socket.sendall(self._total_winners.value.to_bytes(4, byteorder='big', signed=False))
 
   def __handle_client_connection(self):
       try:
@@ -117,7 +117,7 @@ class ClientHandler:
   def __accept_new_connection(self):
       logging.info(f'[SERVER {self._worker_number}] Proceed to accept new connections')
       self._client_socket, addr = self._server_socket.accept()
-      self._client_socket.settimeout(5.0)
+      self._client_socket.settimeout(30.0)
       logging.info(f'[SERVER {self._worker_number}] Got connection from {addr}')
 
   def __log_winners(self, winners: list[Contestant]):

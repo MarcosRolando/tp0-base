@@ -9,8 +9,15 @@ import (
 	"strings"
 )
 
+type FinalLotteryResult int
+
+const (
+	RemainingAgencies FinalLotteryResult = iota
+	TotalWinners
+)
+
 type LotteryConnection struct {
-	conn     net.Conn
+	conn net.Conn
 }
 
 func NewLotteryConnection(address string) (*LotteryConnection, error) {
@@ -55,7 +62,9 @@ func (lc *LotteryConnection) GetBatchResult() ([]PersonData, error) {
 	winners := make([]PersonData, totalWinners)
 	for i := 0; i < int(totalWinners); i++ {
 		winner, err := lc.getWinner()
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		winners[i] = winner
 	}
 	return winners, nil
@@ -68,6 +77,36 @@ func (lc *LotteryConnection) Close() error {
 func (lc *LotteryConnection) NotifyCompletion() error {
 	_, err := lc.conn.Write(make([]byte, 2))
 	return err
+}
+
+func (lc *LotteryConnection) GetFinalResult() (FinalLotteryResult, int, error) {
+	if _, err := lc.conn.Write([]byte{1}); err != nil {
+		return 0, 0, err
+	}
+	resultTypeBuff := make([]byte, 1)
+	if _, err := io.ReadFull(lc.conn, resultTypeBuff); err != nil {
+		return 0, 0, err
+	}
+	resultType := FinalLotteryResult(resultTypeBuff[0])
+
+	switch resultType {
+
+	case RemainingAgencies:
+		buff := make([]byte, 2)
+		if _, err := io.ReadFull(lc.conn, buff); err != nil {
+			return 0, 0, err
+		}
+		return resultType, int(binary.BigEndian.Uint16(buff)), nil
+
+	case TotalWinners:
+		buff := make([]byte, 4)
+		if _, err := io.ReadFull(lc.conn, buff); err != nil {
+			return 0, 0, err
+		}
+		return resultType, int(binary.BigEndian.Uint32(buff)), nil
+	}
+
+	return 0, 0, fmt.Errorf("bad protocol: received final result flag of value %v", resultTypeBuff[0])
 }
 
 func (lc *LotteryConnection) getWinner() (PersonData, error) {
@@ -85,9 +124,9 @@ func (lc *LotteryConnection) getWinner() (PersonData, error) {
 		return PersonData{}, errors.New("bad protocol, received invalid winner data")
 	}
 	return PersonData{
-		Name: winnerData[0],
-		Surname: winnerData[1],
-		Document: winnerData[2],
+		Name:      winnerData[0],
+		Surname:   winnerData[1],
+		Document:  winnerData[2],
 		Birthdate: winnerData[3],
 	}, nil
 }

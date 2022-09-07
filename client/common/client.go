@@ -82,10 +82,26 @@ func (c *Client) PlayLottery() {
 	}
 
 	if err := c.lottery.NotifyCompletion(); err != nil {
-		log.Errorf("[CLIENT %v] Failed to notify data completion to Lotter. Error: %v", c.config.ID, err.Error())
-	} else {
-		log.Infof("[CLIENT %v] Sent all data to Lottery. Winners rate: %v", c.config.ID, 
-			float64(totalWinners) / float64(totalParticipants))
+		log.Panicf("[CLIENT %v] Failed to notify data completion to Lotter. Error: %v", c.config.ID, err.Error())
+	}
+	log.Infof("[CLIENT %v] Sent all data to Lottery. Winners rate: %v", c.config.ID, 
+		float64(totalWinners) / float64(totalParticipants))
+	
+	received_result := false
+	for !received_result {
+		rType, val, err := c.lottery.GetFinalResult()
+		if err != nil {
+			log.Panicf("[CLIENT %v] Failed to fetch final Lottery result. Error: %v", c.config.ID, err.Error())
+		}
+
+		switch rType {
+		case RemainingAgencies:
+			log.Infof("[CLIENT %v] Still processing %v agencies", c.config.ID, val) 
+			time.Sleep(5 * time.Second) // TODO make N configurable
+		case TotalWinners:
+			log.Infof("[CLIENT %v] The total amount of winners is %v", c.config.ID, val) 
+			received_result = true	
+		}
 	}
 }
 

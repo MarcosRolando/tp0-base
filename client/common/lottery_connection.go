@@ -17,7 +17,8 @@ const (
 )
 
 type LotteryConnection struct {
-	conn net.Conn
+	conn 				net.Conn
+	ClosedConn	bool
 }
 
 func NewLotteryConnection(address string) (*LotteryConnection, error) {
@@ -27,6 +28,7 @@ func NewLotteryConnection(address string) (*LotteryConnection, error) {
 	}
 	return &LotteryConnection{
 		conn,
+		false,
 	}, nil
 }
 
@@ -71,6 +73,7 @@ func (lc *LotteryConnection) GetBatchResult() ([]PersonData, error) {
 }
 
 func (lc *LotteryConnection) Close() error {
+	lc.ClosedConn = true
 	return lc.conn.Close()
 }
 

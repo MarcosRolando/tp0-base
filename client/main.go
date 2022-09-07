@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"strconv"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
@@ -35,10 +36,8 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("loop", "period")
 	v.BindEnv("loop", "lapse")
 	v.BindEnv("log", "level")
-	v.BindEnv("person", "name")
-	v.BindEnv("person", "surname")
-	v.BindEnv("person", "document")
-	v.BindEnv("person", "birthdate")
+	v.BindEnv("sleep", "time")
+
 
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
@@ -58,6 +57,14 @@ func InitConfig() (*viper.Viper, error) {
 		return nil, errors.Wrapf(err, "Could not parse CLI_LOOP_PERIOD env var as time.Duration.")
 	}
 
+	if _, err := time.ParseDuration(v.GetString("sleep.time")); err != nil {
+		return nil, errors.Wrapf(err, "Could not parse CLI_SLEEP_TIME env var as time.Duration.")
+	}
+
+	if _, err := strconv.ParseUint(v.GetString("batch.size"), 10, 0); err != nil {
+		return nil, errors.Wrapf(err, "Could not parse CLI_BATCH_SIZE env var as unsigned integer.")
+	}
+
 	return v, nil
 }
 
@@ -72,7 +79,7 @@ func InitLogger(logLevel string) error {
 
 	logrus.SetLevel(level)
 	logrus.SetFormatter(&logrus.TextFormatter{
-    DisableQuote: true,
+    DisableQuote: true, // Allows multine printing (useuful for contestants)
 	})
 	return nil
 }
@@ -86,6 +93,7 @@ func PrintConfig(v *viper.Viper) {
 	logrus.Infof("Loop Lapse: %v", v.GetDuration("loop.lapse"))
 	logrus.Infof("Loop Period: %v", v.GetDuration("loop.period"))
 	logrus.Infof("Log Level: %s", v.GetString("log.level"))
+	logrus.Infof("Sleep Retry Time: %s", v.GetString("log.sleep.time"))
 }
 
 func main() {
@@ -106,12 +114,8 @@ func main() {
 		ID:            v.GetString("id"),
 		LoopLapse:     v.GetDuration("loop.lapse"),
 		LoopPeriod:    v.GetDuration("loop.period"),
-		PersonInfo: common.PersonData{
-			Name:      v.GetString("person.name"),
-			Surname:   v.GetString("person.surname"),
-			Document:  v.GetString("person.document"),
-			Birthdate: v.GetString("person.birthdate"),
-		},
+		SleepTime:		 v.GetDuration("sleep.time"),
+		MaxBatchSize:  v.GetUint("batch.size"),
 	}
 
 	client := common.NewClient(clientConfig)

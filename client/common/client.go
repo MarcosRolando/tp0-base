@@ -10,13 +10,20 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type ClosedConnectionError struct {}
+
+func (cce *ClosedConnectionError) Error() string {
+	return fmt.Sprintf("connection was closed")
+}
+
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
 	ID            string
 	ServerAddress string
 	LoopLapse     time.Duration
 	LoopPeriod    time.Duration
-	PersonInfo    PersonData
+	SleepTime			time.Duration
+	MaxBatchSize	uint
 }
 
 // Client Entity that encapsulates how
@@ -37,15 +44,14 @@ func NewClient(config ClientConfig) *Client {
 func (c *Client) PlayLottery() {
 	dataReader := DataReader{}
 	if err := dataReader.Open(fmt.Sprintf("/datasets/dataset-%v.csv", c.config.ID)); err != nil {
-		log.Fatalf("[CLIENT %v] Failed to open dataset file", c.config.ID)
+		log.Fatalf("Failed to open dataset file")
 	}
-	defer dataReader.Close() // TODO see about handling error
+	defer dataReader.Close()
 
 	lotteryConn, err := NewLotteryConnection(c.config.ServerAddress)
 	if err != nil {
 		log.Fatalf(
-			"[CLIENT %v] Could not connect to server. Error: %v",
-			c.config.ID,
+			"Could not connect to server. Error: %v",
 			err,
 		)
 	}
@@ -61,69 +67,72 @@ func (c *Client) PlayLottery() {
 	go func() {
 		_, ok := <- sigtermSignal
 		if ok {
-			log.Infof("[CLIENT %v] Received SIGTERM signal, terminating client...", c.config.ID)
-			c.lottery.Close() // TODO see about os.exit(0) maybe thread leak? race with panic maybe?
-			// UPDATE: this was fixed in exercise 8 (both the leak of not waiting for a channel confirmation message
-			// and that the client panics because it doesnt distinguish between a dropped connection and the closed
-			// connection)
+			log.Infof("Received SIGTERM signal, terminating client...")
+			c.lottery.Close()
 		}
 	}()
 
-	const maxBatchSize = 2000
 	totalParticipants := 0
 	totalWinners := 0
 	for {
-		batchInfo, err := dataReader.ReadNextBatch(maxBatchSize)
+		batchInfo, err := dataReader.ReadNextBatch(c.config.MaxBatchSize)
 		if err != nil {
-			log.Panicf("[CLIENT %v] Failed to read batch data. Error: %v", c.config.ID, err.Error())
+			log.Panicf("Failed to read batch data. Error: %v", err.Error())
 		}
 		if len(batchInfo) == 0 { break }
 		totalParticipants += len(batchInfo)
-		c.submitDataToLottery(batchInfo)
-		batchWinners := c.checkLotteryResult()
+		if err := c.submitDataToLottery(batchInfo); err != nil {
+			return; // Connection was closed by sigterm signal
+		}
+		batchWinners, err := c.checkLotteryResult()
+		if err != nil { return } // Connection was closed by sigterm signal
 		totalWinners += len(batchWinners)
 	}
 
 	if err := c.lottery.NotifyCompletion(); err != nil {
-		log.Panicf("[CLIENT %v] Failed to notify data completion to Lotter. Error: %v", c.config.ID, err.Error())
+		if c.lottery.ClosedConn { return }
+		log.Panicf("Failed to notify data completion to Lotter. Error: %v", err.Error())
 	}
-	log.Infof("[CLIENT %v] Sent all data to Lottery. Winners rate: %v", c.config.ID, 
-		float64(totalWinners) / float64(totalParticipants))
+	log.Infof("Sent all data to Lottery. Winners rate: %v", float64(totalWinners) / float64(totalParticipants))
 	
 	received_result := false
 	for !received_result {
 		rType, val, err := c.lottery.GetFinalResult()
 		if err != nil {
-			log.Panicf("[CLIENT %v] Failed to fetch final Lottery result. Error: %v", c.config.ID, err.Error())
+			if c.lottery.ClosedConn { return }
+			log.Panicf("Failed to fetch final Lottery result. Error: %v", err.Error())
 		}
 
 		switch rType {
 		case RemainingAgencies:
-			log.Infof("[CLIENT %v] Still processing %v agencies", c.config.ID, val) 
-			time.Sleep(5 * time.Second) // TODO make N configurable
+			log.Infof("Still processing %v agencies", val) 
+			time.Sleep(c.config.SleepTime)
 		case TotalWinners:
-			log.Infof("[CLIENT %v] The total amount of winners is %v", c.config.ID, val) 
-			received_result = true	
+			log.Infof("The total amount of winners is %v", val) 
+			received_result = true
 		}
 	}
 }
 
-func (c *Client) submitDataToLottery(batchInfo []PersonData) {
+func (c *Client) submitDataToLottery(batchInfo []PersonData) error {
 	if err := c.lottery.SendBatchInfo(batchInfo); err != nil {
-		log.Panicf("[CLIENT %v] Failed to submit data to Lottery. Error: %v", c.config.ID, err.Error())
+		if c.lottery.ClosedConn { return &ClosedConnectionError{} }
+		log.Panicf("Failed to submit data to Lottery. Error: %v", err.Error())
 	}
-	log.Infof("[CLIENT %v] Submitted batch data to Lottery", c.config.ID)
+	log.Infof("Submitted batch data to Lottery")
+	return nil
 }
 
-func (c *Client) checkLotteryResult() []PersonData {
+func (c *Client) checkLotteryResult() ([]PersonData, error) {
 	winners, err := c.lottery.GetBatchResult()
 	if err != nil {
-		log.Panicf("[CLIENT %v] Failed to get result from Lottery. Error: %v", c.config.ID, err.Error())
+		if c.lottery.ClosedConn { return nil, &ClosedConnectionError{} }
+		log.Panicf("Failed to get result from Lottery. Error: %v", err.Error())
 	}
-	log.Infof("[CLIENT %v] Received batch winners", c.config.ID)
+	log.Infof("Received batch winners")
 	for _, w := range winners {
 		log.Infof("\n\n Name: %v\n Surname: %v\n Document: %v\n Birthdate: %v\n", 
 			w.Name, w.Surname, w.Document, w.Birthdate)
 	}
-	return winners
+	return winners, nil
 }

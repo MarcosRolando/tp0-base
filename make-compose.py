@@ -40,6 +40,8 @@ for i in range(1, clientCount + 1):
       - CLI_SERVER_ADDRESS=server:12345
       - CLI_LOOP_LAPSE=1m2s
       - CLI_LOG_LEVEL=DEBUG
+      - CLI_SLEEP_TIME=5s
+      - CLI_BATCH_SIZE=2000
     networks:
       - testing_net
     depends_on:

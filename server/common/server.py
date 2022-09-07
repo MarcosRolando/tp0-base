@@ -1,8 +1,11 @@
+import multiprocessing
 import socket
 import logging
 import signal
 import sys
+from multiprocessing import Process
 from common.utils import Contestant, is_winner, recv_all
+
 
 class BadProtocolError(Exception): ...
 
@@ -13,9 +16,10 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self._client_socket = None
-        signal.signal(signal.SIGTERM, self.__sigterm_handler)
+        total_workers = max(multiprocessing.cpu_count() - 1, 1)
+        self._client_handlers = [Process(target=self.__run_worker) for _ in range(total_workers)]
 
-    def __sigterm_handler(self, received_signal, _):
+    def __sigterm_handler_worker(self, received_signal, _):
         if received_signal != signal.SIGTERM: return
         logging.info('Closing accepter socket...')
         self._server_socket.close()
@@ -25,7 +29,17 @@ class Server:
         logging.info('Succesfully freed resources')
         sys.exit(0)
 
+    def __sigterm_handler_manager(self, received_signal, _):
+        if received_signal != signal.SIGTERM: return
+        for ch in self._client_handlers: ch.terminate()
+
     def run(self):
+        signal.signal(signal.SIGTERM, self.__sigterm_handler_manager)
+        for ch in self._client_handlers: ch.start()
+        for ch in self._client_handlers: ch.join()
+
+    def __run_worker(self):
+        signal.signal(signal.SIGTERM, self.__sigterm_handler_worker)
         while True:
             self.__accept_new_connection()
             self.__handle_client_connection()
@@ -45,9 +59,9 @@ class Server:
         self._client_socket.sendall(len(winners).to_bytes(2, byteorder='big', signed=False))
         for w in winners:
             winnerData = bytearray(';'.join([
-                w.first_name, 
+                w.first_name,
                 w.last_name,
-                w.document, 
+                w.document,
                 w.birthdate.strftime('%Y-%m-%d')]
                 ).encode('utf-8'))
             self._client_socket.sendall(len(winnerData).to_bytes(2, byteorder='big', signed=False))

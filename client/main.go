@@ -93,7 +93,8 @@ func PrintConfig(v *viper.Viper) {
 	logrus.Infof("Loop Lapse: %v", v.GetDuration("loop.lapse"))
 	logrus.Infof("Loop Period: %v", v.GetDuration("loop.period"))
 	logrus.Infof("Log Level: %s", v.GetString("log.level"))
-	logrus.Infof("Sleep Retry Time: %s", v.GetString("log.sleep.time"))
+	logrus.Infof("Sleep Retry Time: %s", v.GetString("sleep.time"))
+	logrus.Infof("Batch size: %s", v.GetString("batch.size"))
 }
 
 func main() {

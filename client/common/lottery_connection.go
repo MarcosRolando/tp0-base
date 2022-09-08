@@ -33,6 +33,11 @@ func NewLotteryConnection(address string) (*LotteryConnection, error) {
 }
 
 func (lc *LotteryConnection) SendBatchInfo(batchInfo []PersonData) error {
+	// Notify request type batch
+	if _, err := lc.conn.Write([]byte{0}); err != nil {
+		return err
+	}
+	// Notify data length
 	if err := binary.Write(lc.conn, binary.BigEndian, uint16(len(batchInfo))); err != nil {
 		return err
 	}
@@ -77,39 +82,40 @@ func (lc *LotteryConnection) Close() error {
 	return lc.conn.Close()
 }
 
-func (lc *LotteryConnection) NotifyCompletion() error {
-	_, err := lc.conn.Write(make([]byte, 2))
-	return err
-}
-
-func (lc *LotteryConnection) GetFinalResult() (FinalLotteryResult, int, error) {
+func (lc *LotteryConnection) GetFinalResult() (FinalLotteryResult, int, int, error) {
+	// Notify request type results
 	if _, err := lc.conn.Write([]byte{1}); err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 	resultTypeBuff := make([]byte, 1)
 	if _, err := io.ReadFull(lc.conn, resultTypeBuff); err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 	resultType := FinalLotteryResult(resultTypeBuff[0])
 
 	switch resultType {
 
 	case RemainingAgencies:
-		buff := make([]byte, 2)
-		if _, err := io.ReadFull(lc.conn, buff); err != nil {
-			return 0, 0, err
+		agenciesBuff := make([]byte, 2)
+		if _, err := io.ReadFull(lc.conn, agenciesBuff); err != nil {
+			return 0, 0, 0, err
 		}
-		return resultType, int(binary.BigEndian.Uint16(buff)), nil
+		winnersCountBuff := make([]byte, 4)
+		if _, err := io.ReadFull(lc.conn, winnersCountBuff); err != nil {
+			return 0, 0, 0, err
+		}
+		return resultType, int(binary.BigEndian.Uint16(agenciesBuff)), 
+			int(binary.BigEndian.Uint32(winnersCountBuff)), nil
 
 	case TotalWinners:
 		buff := make([]byte, 4)
 		if _, err := io.ReadFull(lc.conn, buff); err != nil {
-			return 0, 0, err
+			return 0, 0, 0, err
 		}
-		return resultType, int(binary.BigEndian.Uint32(buff)), nil
+		return resultType, 0, int(binary.BigEndian.Uint32(buff)), nil
 	}
 
-	return 0, 0, fmt.Errorf("bad protocol: received final result flag of value %v", resultTypeBuff[0])
+	return 0, 0, 0, fmt.Errorf("bad protocol: received final result flag of value %v", resultTypeBuff[0])
 }
 
 func (lc *LotteryConnection) getWinner() (PersonData, error) {

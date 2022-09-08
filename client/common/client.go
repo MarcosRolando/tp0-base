@@ -63,6 +63,9 @@ func (c *Client) PlayLottery() {
 		if ok {
 			log.Infof("[CLIENT %v] Received SIGTERM signal, terminating client...", c.config.ID)
 			c.lottery.Close() // TODO see about os.exit(0) maybe thread leak? race with panic maybe?
+			// UPDATE: this was fixed in exercise 8 (both the leak of not waiting for a channel confirmation message
+			// and that the client panics because it doesnt distinguish between a dropped connection and the closed
+			// connection)
 		}
 	}()
 

@@ -120,6 +120,7 @@ func (c *Client) makeLotteryConnection() {
 	c.lott_mut.Lock()
 	defer c.lott_mut.Unlock()
 	if c.lottery != nil && c.lottery.ClosedConn { return }
+	if c.lottery != nil { c.lottery.Close() } // Free previous connection resource
 	lotteryConn, err := NewLotteryConnection(c.config.ServerAddress)
 	if err != nil {
 		log.Panicf(

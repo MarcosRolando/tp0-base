@@ -1,3 +1,16 @@
+# Aclaraciones del alumno
+
+Para probar cada ejercicio debe hacerse un checkout de la branch correspondiente y ejecutar el comando `make docker-compose up` para correr el mismo, seguido de un `make docker-compose logs` para poder observar el output. El formato de los branches es del tipo `ej[nro]`, donde `[nro]` es el correspondiente a cada ejercicio.
+
+Para la primera seccion (Docker) cada ejercicio parte por separado de la branch `master` y resuelve unicamente lo pedido por el enunciado (no son acumulativos). Existe una branch `first_section` que mergea los distintos ejercicios de Docker para tener todo junto, la branch `ej5` parte de esta como base.
+
+Por ultimo, algunos errores contenidos en ejercicios de la segunda parte se fueron corrigiendo en los siguientes, por lo que debe tomarse de referencia el `ej8` como el mas correcto (se agregaron algunas aclaraciones post mortem igualmente en aquellos ejercicios que contienen detalles luego resueltos).
+
+### ACLARACION IMPORTANTE
+
+El ejercicio 8 presenta un cambio considerable respecto al 7 en cuanto al funcionamiento. Originalmente habia asumido que los enviados de batch de los clientes al servidor sucedian dentro de una misma conexion en lugar de conexiones diferentes por cada batch. En el ejercicio 8 se cambio la implementacion por conexiones independientes para el envio de cada batch, por lo que un servidor puede procesar batches de clientes distintos en lugar de esperar a terminar todos los batches de un cliente para pasar a otro. Igualmente cada ejercicio contiene la explicacion del funcionamiento y el protocolo correspondiente.
+
+
 # TP0: Docker + Comunicación + Sincronización
 
 En el presente repositorio se provee un ejemplo de cliente-servidor el cual corre en containers con la ayuda de [docker-compose](https://docs.docker.com/compose/). El mismo es un ejemplo práctico brindado por la cátedra para que los alumnos tengan un esqueleto básico de cómo armar un proyecto de cero en donde todas las dependencias del mismo se encuentren encapsuladas en containers. El cliente (Golang) y el servidor (Python) fueron desarrollados en diferentes lenguajes simplemente para mostrar cómo dos lenguajes de programación pueden convivir en el mismo proyecto con la ayuda de containers.
